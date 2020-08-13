@@ -1,6 +1,8 @@
 /**
 * Create by Miguel Ángel López on 20/07/19
 * Modified by Alba Prades on 21/07/20
+* Modified by Alba Prades on 13/08/20 
+*      Added modes
 **/
 
 #ifndef HAIER_ESP_HAIER_H
@@ -13,21 +15,31 @@ using namespace esphome;
 using namespace esphome::climate;
 
 // Updated read offset
+
+#define MODE_OFFSET 			14
+#define MODE_MSK				0xF0
+	#define MODE_AUTO       	0x00
+	#define MODE_DRY			0x40
+	#define MODE_COOL			0x20
+	#define MODE_HEAT			0x80
+	#define MODE_FAN			0xC0
+#define FAN_MSK					0x0F
+	#define FAN_LOW	    		0x03
+	#define FAN_MID		  		0x02
+	#define FAN_HIGH	     	0x01
+	#define FAN_AUTO	   		0x05
+
 #define TEMPERATURE_OFFSET   	22
 
-#define MODE_OFFSET 			13
-    #define MODE_OFF            0
-	#define MODE_AUTO           2
-	#define MODE_DRY 			4
-	#define MODE_COOL 			8
-	#define MODE_HEAT 			10
+#define POWER_OFFSET       		17
+#define POWER_MSK				0x01
 
-	#define FAN_SPEED   		25
-	#define FAN_MIN     		2
-	#define FAN_MIDDLE  		1
-	#define FAN_MAX     		2
-	#define FAN_AUTO    		3
+#define PURIFY_OFFSET			17
+#define PURIFY_MSK				0x02
+	
+#define SET_POINT_OFFSET 		12	
 
+// Another byte
 	#define SWING        		27
 	#define SWING_OFF          	0
 	#define SWING_VERTICAL     	1
@@ -39,11 +51,7 @@ using namespace esphome::climate;
 	#define LOCK_OFF    		00
 
 // Updated read offset
-#define POWER_OFFSET       		17
-	#define POWER_ON    		3
-	#define POWER_OFF   		2
-	#define POWER_ON_2    		3//25
-	#define POWER_OFF_2   		2//24
+
 
 
 #define FRESH       			31
@@ -51,7 +59,7 @@ using namespace esphome::climate;
 	#define FRESH_OFF   		0
 
 // Updated read offset
-#define SET_POINT_OFFSET 12
+
 
 #define COMMAND_OFFSET			9
 	#define RESPONSE_POLL		2
@@ -63,9 +71,6 @@ using namespace esphome::climate;
 	#define CTR_POWER_ON		0x01
 	#define CTR_POWER_OFF		0x00
 	
-#define CTR_SET_POINT_OFFSET	12
-#define CTR_MODE_OFFSET			13
-
 #define POLY 0xa001
 
 
@@ -88,7 +93,20 @@ private:
 	byte initialization_2[13] = {0xFF,0xFF,0x08,0x40,0x0,0x0,0x0,0x0,0x0,0x70,0xB8,0x86,0x41};
  	byte poll[15] = {0xFF,0xFF,0x0A,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x4D,0x01,0x99,0xB3,0xB4};
     byte power_command[17]     = {0xFF,0xFF,0x0C,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x5D,0x01,0x00,0x01,0xAC,0xBD,0xFB};
-	byte set_point_command[25] = {0xFF,0xFF,0x14,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x60,0x01,0x09,0x08,0x25,0x00,0x02,0x03,0x00,0x06,0x00,0x0C,0x03,0x0B,0x70};
+	byte control_command[25] = {0xFF,0xFF,0x14,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x60,0x01,0x09,0x08,0x25,0x00,0x02,0x03,0x00,0x06,0x00,0x0C,0x03,0x0B,0x70};
+
+
+	void SetMode(byte mode)
+	{
+		control_command[MODE_OFFSET] &= ~MODE_MSK;
+		control_command[MODE_OFFSET] |= mode;
+	}	
+	
+	void SetFan(byte fan_mode)
+	{
+		control_command[MODE_OFFSET] &= ~FAN_MSK;
+		control_command[MODE_OFFSET] |= fan_mode;
+	}
 
 
 public:
@@ -160,7 +178,7 @@ public:
 
 
         auto raw = getHex(status, sizeof(status));
-        ESP_LOGD("Haier", "Readed message: %s ", raw.c_str());
+        ESP_LOGD("Haier", "Readed message ALBA: %s ", raw.c_str());
 
         byte check = getChecksum(status, sizeof(status));
 
@@ -182,12 +200,12 @@ public:
         }
 
 
-        if (status[POWER_OFFSET] == POWER_OFF) {
+        if (!(status[POWER_OFFSET]&POWER_MSK)) {
             mode = CLIMATE_MODE_OFF;
 
         } else {
-
-            switch (status[MODE_OFFSET]) {
+			ESP_LOGW("Haier", "Current mode = %X", status[MODE_OFFSET] & MODE_MSK);
+            switch (status[MODE_OFFSET] & MODE_MSK) {
                 case MODE_COOL:
                     mode = CLIMATE_MODE_COOL;
                     break;
@@ -196,6 +214,7 @@ public:
                     break;
                 case MODE_AUTO:
                 case MODE_DRY:
+				case MODE_FAN:
                 default:
                     mode = CLIMATE_MODE_AUTO;
             }
@@ -210,6 +229,9 @@ public:
 
     void control(const ClimateCall &call) override {
         ClimateMode new_mode;
+		bool new_control_cmd = false;
+		
+		
 		ESP_LOGD("Control", "Control call");
 
         if (call.get_mode().has_value()) {
@@ -217,58 +239,84 @@ public:
             new_mode = *call.get_mode();
         
 			ESP_LOGD("Control", "*call.get_mode() = %d", new_mode);
+			//ESP_LOGD("Control", "abans: 0x%X ", control_command[MODE_OFFSET]);
+			
+			if((new_mode != CLIMATE_MODE_OFF) && (!(status[POWER_OFFSET]&POWER_MSK))){
+				ESP_LOGD("Control", "abans: 0x%X ", control_command[MODE_OFFSET]);
+
+				// if the current mode is off -> we need to power on
+				sendData(power_command, sizeof(power_command));  
+				delay(1000);	
+			}
+			
+			
+			// PURIFY ON
+			//control_command[PURIFY_OFFSET] |= PURIFY_MSK;
+			// PURIFY OFF
+			//control_command[PURIFY_OFFSET] &= ~PURIFY_MSK;
+			
+			
 			
             switch (new_mode) {
                 case CLIMATE_MODE_OFF:
-                    power_command[CTR_POWER_OFFSET] = CTR_POWER_OFF;
-					sendData(power_command, sizeof(power_command));  
+					if(status[POWER_OFFSET]&POWER_MSK){				
+						power_command[CTR_POWER_OFFSET] = CTR_POWER_OFF;
+						sendData(power_command, sizeof(power_command)); 
+					}
                     break;
                 case CLIMATE_MODE_AUTO:
-					power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
-					set_point_command[CTR_MODE_OFFSET] = MODE_AUTO;
-					set_point_command[CTR_SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
-					if (mode == CLIMATE_MODE_OFF) {
-						// if the current mode is off -> we need to power on
-						sendData(power_command, sizeof(power_command));  
-						delay(1000);				
+					if((status[MODE_OFFSET] & MODE_MSK) != MODE_DRY){
+						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
+						SetMode(MODE_DRY);
+						SetFan(FAN_HIGH);
+						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
+						new_control_cmd = true;
+						//sendData(control_command, sizeof(control_command)); 
 					}
-					sendData(set_point_command, sizeof(set_point_command)); 
                     break;
                 case CLIMATE_MODE_HEAT:
-					power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
-					set_point_command[CTR_MODE_OFFSET] = MODE_HEAT;
-					set_point_command[CTR_SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
-					if (mode == CLIMATE_MODE_OFF) {
-						// if the current mode is off -> we need to power on
-						sendData(power_command, sizeof(power_command));  
-						delay(1000);				
+					if((status[MODE_OFFSET] & MODE_MSK) != MODE_HEAT){
+						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;				
+						SetMode(MODE_HEAT);
+						SetFan(FAN_AUTO);
+						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
+						new_control_cmd = true;
+						//sendData(control_command, sizeof(control_command));
 					}
-					sendData(set_point_command, sizeof(set_point_command)); 
+					 
                     break;
                 case CLIMATE_MODE_COOL:
-					power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
-					set_point_command[CTR_MODE_OFFSET] = MODE_COOL;
-					set_point_command[CTR_SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
-					if (mode == CLIMATE_MODE_OFF) {
-						// if the current mode is off -> we need to power on
-						sendData(power_command, sizeof(power_command));  
-						delay(1000);				
+					if((status[MODE_OFFSET] & MODE_MSK) != MODE_COOL){
+						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
+						SetMode(MODE_COOL);
+						SetFan(FAN_AUTO);
+						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
+						new_control_cmd = true;
+						//sendData(control_command, sizeof(control_command)); 
 					}
-					sendData(set_point_command, sizeof(set_point_command)); 
                     break;
             }
+			//ESP_LOGD("Haier", "despres: 0x%X ", control_command[MODE_OFFSET]);
             // Publish updated state
             mode = new_mode;
             this->publish_state();
 		}
+		
 		if (call.get_target_temperature().has_value()) {
 		    float temp = *call.get_target_temperature();
 			ESP_LOGD("Control", "*call.get_target_temperature() = %f", temp);
-			set_point_command[CTR_SET_POINT_OFFSET] = (uint16) temp - 16;
-			sendData(set_point_command, sizeof(set_point_command));
+			control_command[SET_POINT_OFFSET] = (uint16) temp - 16;
+			//sendData(control_command, sizeof(control_command));
+			new_control_cmd = true;
 			
 			target_temperature = temp;
             this->publish_state();
+		}
+		
+		if(new_control_cmd == true){
+			ESP_LOGD("Haier", "Enviando nueva INFO ");
+			sendData(control_command, sizeof(control_command));
+			new_control_cmd = false;
 		}
    }
 
@@ -286,7 +334,7 @@ public:
         Serial.write(message, size);
 
         auto raw = getHex(message, size);
-        ESP_LOGD("Haier", "Sended message: %s  - CRC: %X - CRC16: %X", raw.c_str(), crc, crc_16);
+        ESP_LOGD("Haier", "Message sent: %s  - CRC: %X - CRC16: %X", raw.c_str(), crc, crc_16);
 
     }
 
