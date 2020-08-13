@@ -267,7 +267,7 @@ public:
                 case CLIMATE_MODE_AUTO:
 					if((status[MODE_OFFSET] & MODE_MSK) != MODE_DRY){
 						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
-						SetMode(MODE_DRY);
+						SetMode(MODE_FAN);
 						SetFan(FAN_HIGH);
 						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
 						new_control_cmd = true;
