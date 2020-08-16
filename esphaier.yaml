@@ -1,18 +1,22 @@
 esphome:
-  name: aire_acondicionat
+  name: ac_sala
   platform: ESP8266
-  board: esp01_1m
+  board: d1_mini
   includes:
     - Haier.h
 
 logger:
   level: DEBUG
-#  baud_rate: 0 #Important. You can't use serial port
+  baud_rate: 0 #Important. You can't use serial port
   
 wifi:
-  ssid: "xxx"
-  password: "xxx"
-
+  ssid: "XXX"
+  password: "XXX"
+  #important, otherwise the IP could change and then the entity is unavailable from home assistant.
+  manual_ip:
+    static_ip: 192.168.1.32
+    gateway: 192.168.1.1
+    subnet: 255.255.255.0
 # Enable Home Assistant API
 api:
 
@@ -26,4 +30,4 @@ climate:
       App.register_component(haier);
       return {haier};
     climates:
-      - name: "Haier"
+      - name: "ac sala"
