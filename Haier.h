@@ -242,7 +242,7 @@ public:
 			//ESP_LOGD("Control", "abans: 0x%X ", control_command[MODE_OFFSET]);
 			
 			if((new_mode != CLIMATE_MODE_OFF) && (!(status[POWER_OFFSET]&POWER_MSK))){
-				ESP_LOGD("Control", "abans: 0x%X ", control_command[MODE_OFFSET]);
+				ESP_LOGD("Control", "POWERING ON THE A/C" );
 
 				// if the current mode is off -> we need to power on
 				sendData(power_command, sizeof(power_command));  
@@ -259,44 +259,58 @@ public:
 			
             switch (new_mode) {
                 case CLIMATE_MODE_OFF:
-					if(status[POWER_OFFSET]&POWER_MSK){				
+					//if(status[POWER_OFFSET]&POWER_MSK){				
 						power_command[CTR_POWER_OFFSET] = CTR_POWER_OFF;
 						sendData(power_command, sizeof(power_command)); 
-					}
+					//}
+					//else{
+						ESP_LOGD("Control", "No need to update mode OFF (%d)", status[POWER_OFFSET]&POWER_MSK);
+					//}
                     break;
                 case CLIMATE_MODE_AUTO:
-					if((status[MODE_OFFSET] & MODE_MSK) != MODE_DRY){
+					//if((status[MODE_OFFSET] & MODE_MSK) != MODE_FAN){
 						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
 						SetMode(MODE_FAN);
-						SetFan(FAN_HIGH);
+						SetFan(FAN_MID);
 						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
-						new_control_cmd = true;
-						//sendData(control_command, sizeof(control_command)); 
-					}
+						sendData(control_command, sizeof(control_command)); 
+						ESP_LOGD("Control", "FAN MODE SENT!!!!!");
+					//}
+					//else{
+					//	ESP_LOGD("Control", "No need to update mode FAN (%d)", (status[MODE_OFFSET] & MODE_MSK));
+					//}
                     break;
                 case CLIMATE_MODE_HEAT:
-					if((status[MODE_OFFSET] & MODE_MSK) != MODE_HEAT){
+					//if((status[MODE_OFFSET] & MODE_MSK) != MODE_HEAT){
 						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;				
 						SetMode(MODE_HEAT);
 						SetFan(FAN_AUTO);
 						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
 						new_control_cmd = true;
-						//sendData(control_command, sizeof(control_command));
-					}
+						sendData(control_command, sizeof(control_command));
+						ESP_LOGD("Control", "HEAT MODE SENT!!!!!");
+					//}
+					//else{
+					//	ESP_LOGD("Control", "No need to update mode HEAT (%d)", (status[MODE_OFFSET] & MODE_MSK));
+					//}
 					 
                     break;
                 case CLIMATE_MODE_COOL:
-					if((status[MODE_OFFSET] & MODE_MSK) != MODE_COOL){
+					//if((status[MODE_OFFSET] & MODE_MSK) != MODE_COOL){
 						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
 						SetMode(MODE_COOL);
 						SetFan(FAN_AUTO);
 						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
 						new_control_cmd = true;
-						//sendData(control_command, sizeof(control_command)); 
-					}
+						sendData(control_command, sizeof(control_command)); 
+						ESP_LOGD("Control", "COOL MODE SENT!!!!!");
+					//}
+					//else{
+					//	ESP_LOGD("Control", "No need to update mode COOL (%d)", (status[MODE_OFFSET] & MODE_MSK));
+					//}
                     break;
             }
-			//ESP_LOGD("Haier", "despres: 0x%X ", control_command[MODE_OFFSET]);
+		
             // Publish updated state
             mode = new_mode;
             this->publish_state();
@@ -306,18 +320,12 @@ public:
 		    float temp = *call.get_target_temperature();
 			ESP_LOGD("Control", "*call.get_target_temperature() = %f", temp);
 			control_command[SET_POINT_OFFSET] = (uint16) temp - 16;
-			//sendData(control_command, sizeof(control_command));
-			new_control_cmd = true;
-			
+			sendData(control_command, sizeof(control_command));			
 			target_temperature = temp;
             this->publish_state();
 		}
 		
-		if(new_control_cmd == true){
-			ESP_LOGD("Haier", "Enviando nueva INFO ");
-			sendData(control_command, sizeof(control_command));
-			new_control_cmd = false;
-		}
+		
    }
 
 
