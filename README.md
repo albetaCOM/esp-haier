@@ -23,6 +23,10 @@
   # Known issues
  
 - ~~The current temperature is not well reported. It always report 28ºC~~ -> Thanks to @instalator this issue is solved.
-- Pending to be able to parse the mode correctly:
-     - Cool mode is not correctly parsed.
-     - Auto mode is not correctly parsed.
+- ~~Pending to be able to parse the mode correctly:
+     - ~~Cool mode is not correctly parsed.
+     - ~~Auto mode is not correctly parsed.
+
+  # Pending work
+- Create a custom switch in yaml file in order to select dry function
+- Create a custom speed in order to select the fan speed.(Auto, High, Mid, Low)
