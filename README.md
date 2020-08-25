@@ -1,14 +1,14 @@
  # ESP Haier
  
- 
+
  ESP Haier is a project to use a ESP8266 (I did not test with ESP32) to control Haier Air Conditioner (firmware version R_1.0.00/e_2.5.14) with wifi module supoort with ESPHome and Home Assisant.
  
 
- You only need configure esphaier.yml, put Haier.h in the same directory and flash. 
+ You only need configure esphaier.yml, put Haier.h or HaierWithFan.h in the same directory and flash. 
  
  Home Assisant will recognize as climate device.
- 
- For now, ESPHome climate component don't support fan speed or swing, so, ESP Haier neither. When esphome will have support, I will add it.
+
+ Added support on HaierWithFan.h for fan, dry and swing. For that ESPHome v1.15.0b1 or higher is needed. In home assistant->Supervisor->ESPHome Addon->Configurator add: esphome_version: v1.15.0b4 
  
  This project is based in the works of Instalator and his project [Haier Wifi](https://github.com/instalator/Haier_WiFi/)
  
@@ -29,4 +29,3 @@
 
   # Pending work
 - Create a custom switch in yaml file in order to select dry function
-- Create a custom speed in order to select the fan speed.(Auto, High, Mid, Low)
