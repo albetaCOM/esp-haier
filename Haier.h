@@ -319,7 +319,7 @@ public:
 		if (call.get_target_temperature().has_value()) {
 		    float temp = *call.get_target_temperature();
 			ESP_LOGD("Control", "*call.get_target_temperature() = %f", temp);
-			control_command[SET_POINT_OFFSET] = (uint16) temp - 16;
+			control_command[SET_POINT_OFFSET] = (uint16_t) temp - 16;
 			sendData(control_command, sizeof(control_command));			
 			target_temperature = temp;
             this->publish_state();
