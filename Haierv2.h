@@ -29,14 +29,31 @@ using namespace esphome::climate;
 	#define FAN_MID		  		0x02
 	#define FAN_HIGH	     	0x01
 	#define FAN_AUTO	   		0x05
+	
+#define HORIZONTAL_SWING_OFFSET		19
+	#define HORIZONTAL_SWING_CENTER 		0x00
+	#define HORIZONTAL_SWING_MAX_LEFT 		0x03
+	#define HORIZONTAL_SWING_LEFT 			0x04
+	#define HORIZONTAL_SWING_MAX_RIGHT 		0x06
+	#define HORIZONTAL_SWING_RIGHT 			0x05
+	#define HORIZONTAL_SWING_AUTO 			0x07
+	
+#define VERTICAL_SWING_OFFSET			13
+	#define VERTICAL_SWING_MAX_UP			0x02
+	#define VERTICAL_SWING_UP				0x04
+	#define VERTICAL_SWING_CENTER				0x06
+	#define VERTICAL_SWING_DOWN				0x08
+	#define VERTICAL_SWING_HEALTH_UP			0x01
+	#define VERTICAL_SWING_HEALTH_DOWN		0x03
+	#define VERTICAL_SWING_AUTO 				0x0C
 
 #define TEMPERATURE_OFFSET   	22
 
-#define POWER_OFFSET       		17
-#define POWER_MSK				0x01
-
-#define PURIFY_OFFSET			17
-#define PURIFY_MSK				0x02
+#define STATUS_DATA_OFFSET			17 // Purify/Quiet mode/OnOff/...
+	#define POWER_BIT				(0)	
+	#define PURIFY_BIT				(1)	
+	#define QUIET_BIT				(3)	
+	#define AUTO_FAN_MAX_BIT		(4)
 	
 #define SET_POINT_OFFSET 		12	
 
@@ -96,17 +113,214 @@ private:
     byte power_command[17]     = {0xFF,0xFF,0x0C,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x5D,0x01,0x00,0x01,0xAC,0xBD,0xFB};
 	byte control_command[25] = {0xFF,0xFF,0x14,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x60,0x01,0x09,0x08,0x25,0x00,0x02,0x03,0x00,0x06,0x00,0x0C,0x03,0x0B,0x70};
 
+	byte climate_mode_fan_speed = FAN_AUTO;
+	byte climate_mode_setpoint = 0x0A;
+	
+	byte fan_mode_fan_speed = FAN_HIGH;
+	byte fan_mode_setpoint = 0x08;
+	
+	bool first_status_received = false;
+	
+	// Some vars for debuging purposes	
+	byte previous_status[47];
+	bool previous_status_init = false;
+	
+	
+	// Functions
 
-	void SetMode(byte mode)
+	void SetHvacModeControl(byte mode)
 	{
 		control_command[MODE_OFFSET] &= ~MODE_MSK;
 		control_command[MODE_OFFSET] |= mode;
 	}	
 	
-	void SetFan(byte fan_mode)
+	byte GetHvacModeStatus()
+	{
+		return status[MODE_OFFSET] & MODE_MSK;
+	}	
+	
+	void SetTemperatureSetpointControl(byte temp)
+	{
+		control_command[SET_POINT_OFFSET] = temp;
+	}	
+	
+	byte GetTemperatureSetpointStatus()
+	{
+		return status[SET_POINT_OFFSET];
+	}	
+	
+	void SetFanSpeedControl(byte fan_mode)
 	{
 		control_command[MODE_OFFSET] &= ~FAN_MSK;
 		control_command[MODE_OFFSET] |= fan_mode;
+	}
+	
+	byte GetFanSpeedStatus()
+	{
+		return status[MODE_OFFSET] & FAN_MSK;
+	}		
+	
+	void SetHorizontalSwingControl(byte swing_mode)
+	{
+		control_command[HORIZONTAL_SWING_OFFSET] = swing_mode;
+	}
+	
+	byte GetHorizontalSwingStatus()
+	{
+		return status[HORIZONTAL_SWING_OFFSET];
+	}	
+	
+	void SetVerticalSwingControl(byte swing_mode)
+	{
+		control_command[VERTICAL_SWING_OFFSET] = swing_mode;
+	}
+	
+	byte GetVerticalSwingStatus()
+	{
+		return status[VERTICAL_SWING_OFFSET];
+	}	
+	
+	void SetQuietModeControl(bool quiet_mode)
+	{
+		byte tmp;
+		byte msk;
+		
+		msk = (0x01 << QUIET_BIT);		
+		
+		if(quiet_mode == true){
+			control_command[STATUS_DATA_OFFSET] |= msk;
+		}
+		else{
+			msk = ~msk;
+			control_command[STATUS_DATA_OFFSET] &= msk;
+		}
+	}
+	
+	bool GetQuietModeStatus( void )
+	{
+		bool ret = false;		
+		byte tmp;
+		byte msk;
+		
+		msk = (0x01 << QUIET_BIT);
+		tmp = status[STATUS_DATA_OFFSET] & msk;
+		
+		if(tmp != 0) ret = true;
+		
+		return ret;
+	}
+	
+	
+	void SetPurifyControl(bool purify_mode)
+	{
+		byte tmp;
+		byte msk;
+		
+		msk = (0x01 << PURIFY_BIT);		
+		
+		if(purify_mode == true){
+			control_command[STATUS_DATA_OFFSET] |= msk;
+		}
+		else{
+			msk = ~msk;
+			control_command[STATUS_DATA_OFFSET] &= msk;
+		}
+	}
+	
+	bool GetPurifyStatus( void )
+	{
+		bool ret = false;		
+		byte tmp;
+		byte msk;
+		
+		msk = (0x01 << PURIFY_BIT);
+		tmp = status[STATUS_DATA_OFFSET] & msk;
+		
+		if(tmp != 0) ret = true;
+		
+		return ret;
+	}
+	
+	void SetPowerControl(bool power_mode)
+	{
+		byte tmp;
+		byte msk;
+		
+		msk = (0x01 << POWER_BIT);		
+		
+		if(power_mode == true){
+			control_command[STATUS_DATA_OFFSET] |= msk;
+		}
+		else{
+			msk = ~msk;
+			control_command[STATUS_DATA_OFFSET] &= msk;
+		}
+	}
+	
+	bool GetPowerStatus( void )
+	{
+		bool ret = false;		
+		byte tmp;
+		byte msk;
+		
+		msk = (0x01 << POWER_BIT);
+		tmp = status[STATUS_DATA_OFFSET] & msk;
+		
+		if(tmp != 0) ret = true;
+		
+		return ret;
+	}
+	
+	
+	bool GetFastModeStatus( void )
+	{
+		bool ret = false;		
+		byte tmp;
+		byte msk;
+		
+		msk = (0x01 << AUTO_FAN_MAX_BIT);
+		tmp = status[STATUS_DATA_OFFSET] & msk;
+		
+		if(tmp != 0) ret = true;
+		
+		return ret;
+	}
+	
+	void SetFastModeControl(bool fast_mode)
+	{
+		byte tmp;
+		byte msk;
+		
+		msk = (0x01 << AUTO_FAN_MAX_BIT);		
+		
+		if(fast_mode == true){
+			control_command[STATUS_DATA_OFFSET] |= msk;
+		}
+		else{
+			msk = ~msk;
+			control_command[STATUS_DATA_OFFSET] &= msk;
+		}
+	}
+	
+	
+	void CompareStatusByte()
+	{
+		int i;
+		
+		if(previous_status_init == false){
+			for (i=0;i<sizeof(status);i++){
+				previous_status[i] = status[i];
+			}
+			previous_status_init = true;
+		}
+		
+		for (i=0;i<sizeof(status);i++)
+		{
+			if(status[i] != previous_status[i]){
+				ESP_LOGD("Debug", "Status byte %d: 0x%X --> 0x%X ", i, previous_status[i],status[i]);
+			}
+			previous_status[i] = status[i];
+		}
 	}
 
 
@@ -200,9 +414,8 @@ public:
 
         if (check != status[CRC_OFFSET(status)]) {
             ESP_LOGW("Haier", "Invalid checksum (%d vs %d)", check, status[CRC_OFFSET(status)]);
-            //return;
+            return;
         }
-
 
         lastCRC = check;
 
@@ -214,14 +427,53 @@ public:
             ESP_LOGW("Haier", "Invalid temperatures");
             return;
         }
+		
+		// Read all the info from the status message and update values in control message
+		// so the next message is updated
+		// This is usefull if there are manual changes with the remote control
+		SetPowerControl(GetPowerStatus());
+		SetHvacModeControl(GetHvacModeStatus());
+		SetPurifyControl(GetPurifyStatus());
+		SetQuietModeControl(GetQuietModeStatus());
+		SetFastModeControl(GetFastModeStatus());
+		SetFanSpeedControl(GetFanSpeedStatus());
+		SetHorizontalSwingControl(GetHorizontalSwingStatus());
+		SetVerticalSwingControl(GetVerticalSwingStatus());
+		SetTemperatureSetpointControl(GetTemperatureSetpointStatus());
+		
+		if(GetHvacModeStatus() == MODE_FAN){
+			fan_mode_fan_speed = GetFanSpeedStatus();
+			fan_mode_setpoint = GetTemperatureSetpointStatus();
+		}
+		else{
+			climate_mode_fan_speed = GetFanSpeedStatus();
+			climate_mode_setpoint = GetTemperatureSetpointStatus();
+		}
+		
+		// Flag to enable modifications from UI as we now know the status of the A/C
+		first_status_received = true;
 
-
-        if (!(status[POWER_OFFSET]&POWER_MSK)) {
+		
+		// DEBUG DATA, uncomment what's needed
+		//ESP_LOGW("Debug", "Power Status = 0x%X", GetPowerStatus());
+		//ESP_LOGW("Debug", "HVAC Mode = 0x%X", GetHvacModeStatus());
+		//ESP_LOGW("Debug", "Purify status = 0x%X", GetPurifyStatus());
+		//ESP_LOGW("Debug", "Quiet mode Status = 0x%X", GetQuietModeStatus());
+		//ESP_LOGW("Debug", "Fast mode Status = 0x%X", GetFastModeStatus());
+		//ESP_LOGW("Debug", "Fan speed Status = 0x%X", GetFanSpeedStatus());
+		//ESP_LOGW("Debug", "Horizontal Swing Status = 0x%X", GetHorizontalSwingStatus());
+		//ESP_LOGW("Debug", "Vertical Swing Status = 0x%X", GetVerticalSwingStatus());
+		//ESP_LOGW("Debug", "Set Point Status = 0x%X", GetTemperatureSetpointStatus());
+		CompareStatusByte();
+		
+		
+		// Update home assistant component
+		
+        if (GetPowerStatus() == false) {
             mode = CLIMATE_MODE_OFF;
-
-        } else {
-			ESP_LOGW("Haier", "Current mode = %X", status[MODE_OFFSET] & MODE_MSK);
-            switch (status[MODE_OFFSET] & MODE_MSK) {
+		} else {
+			// Check current hvac mode
+            switch (GetHvacModeStatus()) {
                 case MODE_COOL:
                     mode = CLIMATE_MODE_COOL;
                     break;
@@ -238,45 +490,55 @@ public:
                 default:
                     mode = CLIMATE_MODE_AUTO;
             }
-			/* Pending to decode the swing offsets
-			if ( data[SWING_POS] & ( 1 << SILENT_MODE_BIT_ON )) {
+					
+			// Get fan speed
+			// If "quiet mode" is set we will read it as "fan low"
+			if ( GetQuietModeStatus() == true) {
                 fan_mode = CLIMATE_FAN_LOW;
-            } else {
-                switch (data[FAN_SPEED]) {
+            }
+			// If we detect that fast mode is on the we read it as "fan high"
+			else if( GetFastModeStatus() == true) {
+				fan_mode = CLIMATE_FAN_HIGH;
+			}			
+			else {				
+				// No quiet or fast so we read the actual fan speed.
+                switch (GetFanSpeedStatus()) {
                     case FAN_AUTO:
                         fan_mode = CLIMATE_FAN_AUTO;
                         break;
-                    case FAN_MEDIUM:
+                    case FAN_MID:
                         fan_mode = CLIMATE_FAN_MEDIUM;
                         break;
-                    case FAN_MIDDLE:
-                        fan_mode = CLIMATE_FAN_MIDDLE;
+                    //case FAN_MIDDLE:
+                    //    fan_mode = CLIMATE_FAN_MIDDLE;
+                    //    break;
+					case FAN_LOW:
+						fan_mode = CLIMATE_FAN_LOW;
                         break;
                     case FAN_HIGH:
                         fan_mode = CLIMATE_FAN_HIGH;
                         break;
                     default:
                         fan_mode = CLIMATE_FAN_AUTO;
+						
                 }
-            }
+            }				
 
-            switch (data[SWING]) {
-                case SWING_OFF: 
-                    if ( data[SWING_POS] & ( 1 << SWING_VERTICAL_BIT )) {
-                        swing_mode = CLIMATE_SWING_VERTICAL;
-                    } else if ( data[SWING_POS] & ( 1 << SWING_HORIZONTAL_BIT )) {
-                        swing_mode = CLIMATE_SWING_HORIZONTAL;
-                    } else {
-                        swing_mode = CLIMATE_SWING_OFF;
-                    }
-                    break;
-                case SWING_BOTH:
-                    swing_mode = CLIMATE_SWING_BOTH;
-                    break;
 
-            } 
-			*/
-        }
+			// Check the status of the swings (vertical and horizontal and translate according component configuration
+			if( (GetHorizontalSwingStatus() == HORIZONTAL_SWING_AUTO) && (GetVerticalSwingStatus() == VERTICAL_SWING_AUTO) ){
+				swing_mode = CLIMATE_SWING_BOTH;				
+			}
+			else if(GetHorizontalSwingStatus() == HORIZONTAL_SWING_AUTO){
+				swing_mode = CLIMATE_SWING_HORIZONTAL;
+			}
+			else if(GetVerticalSwingStatus() == VERTICAL_SWING_AUTO){
+				swing_mode = CLIMATE_SWING_VERTICAL;
+			}
+			else{
+				swing_mode = CLIMATE_SWING_OFF;
+			}
+		}
 
         this->publish_state();
 
@@ -289,92 +551,85 @@ public:
 		
 		
 		ESP_LOGD("Control", "Control call");
+		
+		if(first_status_received == false){
+			ESP_LOGD("Control", "No action, first poll answer not received");
+			return;
+		}
 
         if (call.get_mode().has_value()) {
             // User requested mode change
             new_mode = *call.get_mode();
         
 			ESP_LOGD("Control", "*call.get_mode() = %d", new_mode);
-			//ESP_LOGD("Control", "abans: 0x%X ", control_command[MODE_OFFSET]);
 			
-			if((new_mode != CLIMATE_MODE_OFF) && (!(status[POWER_OFFSET]&POWER_MSK))){
-				ESP_LOGD("Control", "POWERING ON THE A/C" );
-
+			// It seems that this message is no needed, we keep it here commented
+						
+			//if((new_mode != CLIMATE_MODE_OFF) && (GetPowerStatus() == false)){
 				// if the current mode is off -> we need to power on
-				sendData(power_command, sizeof(power_command));  
-				delay(1000);	
-			}
-			
-			
-			// PURIFY ON
-			//control_command[PURIFY_OFFSET] |= PURIFY_MSK;
-			// PURIFY OFF
-			//control_command[PURIFY_OFFSET] &= ~PURIFY_MSK;
-			
-			
+			//	sendData(power_command, sizeof(power_command));  
+			//	delay(1000);	
+			//}
 			
             switch (new_mode) {
                 case CLIMATE_MODE_OFF:
-					//if(status[POWER_OFFSET]&POWER_MSK){				
-						power_command[CTR_POWER_OFFSET] = CTR_POWER_OFF;
-						sendData(power_command, sizeof(power_command)); 
-					//}
-					//else{
-						ESP_LOGD("Control", "No need to update mode OFF (%d)", status[POWER_OFFSET]&POWER_MSK);
-					//}
+					SetPowerControl(false);
+					sendData(control_command, sizeof(control_command)); 
                     break;
+					
                 case CLIMATE_MODE_AUTO:
-					//if((status[MODE_OFFSET] & MODE_MSK) != MODE_FAN){
-						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
-						SetMode(MODE_AUTO);
-						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
-						sendData(control_command, sizeof(control_command)); 
-						ESP_LOGD("Control", "AUTO MODE SENT!!!!!");
-					//}
-					//else{
-					//	ESP_LOGD("Control", "No need to update mode FAN (%d)", (status[MODE_OFFSET] & MODE_MSK));
-					//}
+					SetPowerControl(true);
+					SetHvacModeControl(MODE_AUTO);
+					
+					// Recover fan_speed and setpoint (when switching to fan_only they are "lost")
+					SetFanSpeedControl(climate_mode_fan_speed);
+					SetTemperatureSetpointControl(climate_mode_setpoint);	
+						
+					sendData(control_command, sizeof(control_command));
                     break;
-                case CLIMATE_MODE_HEAT:
-					//if((status[MODE_OFFSET] & MODE_MSK) != MODE_HEAT){
-						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;				
-						SetMode(MODE_HEAT);
-						SetFan(FAN_AUTO);
-						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
-						new_control_cmd = true;
-						sendData(control_command, sizeof(control_command));
-						ESP_LOGD("Control", "HEAT MODE SENT!!!!!");
-					//}
-					//else{
-					//	ESP_LOGD("Control", "No need to update mode HEAT (%d)", (status[MODE_OFFSET] & MODE_MSK));
-					//}
+					
+                case CLIMATE_MODE_HEAT:	
+					SetPowerControl(true);
+					SetHvacModeControl(MODE_HEAT);
+					
+					// Recover fan_speed and setpoint (when switching to fan_only they are "lost")
+					SetFanSpeedControl(climate_mode_fan_speed);
+					SetTemperatureSetpointControl(climate_mode_setpoint);	
+					
+					sendData(control_command, sizeof(control_command));
                     break;
-                case CLIMATE_MODE_DRY:
-						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
-						SetMode(MODE_DRY);
+					
+                case CLIMATE_MODE_DRY:		
+					SetPowerControl(true);
+					SetHvacModeControl(MODE_DRY);
+					
+					// Recover fan_speed and setpoint (when switching to fan_only they are "lost")
+					SetFanSpeedControl(climate_mode_fan_speed);
+					SetTemperatureSetpointControl(climate_mode_setpoint);	
+					
+					sendData(control_command, sizeof(control_command));
                     break;
-                case CLIMATE_MODE_FAN_ONLY:
-						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
-						SetMode(MODE_FAN);
-						SetFan(FAN_MID);
-						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
-						sendData(control_command, sizeof(control_command)); 
-						ESP_LOGD("Control", "FAN MODE SENT!!!!!");
+					
+                case CLIMATE_MODE_FAN_ONLY:				
+					SetPowerControl(true);
+					SetHvacModeControl(MODE_FAN);				
+					
+					// Recover fan_speed and setpoint (fan_only values are "special")
+					SetFanSpeedControl(fan_mode_fan_speed);
+					SetTemperatureSetpointControl(fan_mode_setpoint);	
+					
+					sendData(control_command, sizeof(control_command));
                     break;
 
                 case CLIMATE_MODE_COOL:
-					//if((status[MODE_OFFSET] & MODE_MSK) != MODE_COOL){
-						power_command[CTR_POWER_OFFSET] = CTR_POWER_ON;
-						SetMode(MODE_COOL);
-						SetFan(FAN_AUTO);
-						control_command[SET_POINT_OFFSET] = status[SET_POINT_OFFSET];
-						new_control_cmd = true;
-						sendData(control_command, sizeof(control_command)); 
-						ESP_LOGD("Control", "COOL MODE SENT!!!!!");
-					//}
-					//else{
-					//	ESP_LOGD("Control", "No need to update mode COOL (%d)", (status[MODE_OFFSET] & MODE_MSK));
-					//}
+					SetPowerControl(true);
+					SetHvacModeControl(MODE_COOL);
+					
+					// Recover fan_speed and setpoint (when switching to fan_only they are "lost")
+					SetFanSpeedControl(climate_mode_fan_speed);
+					SetTemperatureSetpointControl(climate_mode_setpoint);
+					
+					sendData(control_command, sizeof(control_command));
                     break;
             }
 		
@@ -387,53 +642,52 @@ public:
         if (call.get_fan_mode().has_value()) {
             switch(call.get_fan_mode().value()) {
                 case CLIMATE_FAN_LOW:
-					SetFan(FAN_LOW);
+					SetFanSpeedControl(FAN_LOW);
                     break;
                 case CLIMATE_FAN_MIDDLE:
-					SetFan(FAN_MID);
+					SetFanSpeedControl(FAN_MID);
                     break;
                 case CLIMATE_FAN_MEDIUM:
-					SetFan(FAN_MID);
+					SetFanSpeedControl(FAN_MID);
                     break;
                 case CLIMATE_FAN_HIGH:
-					SetFan(FAN_HIGH);
+					SetFanSpeedControl(FAN_HIGH);
                     break;
                 case CLIMATE_FAN_AUTO:
-                    SetFan(FAN_AUTO);
+                    SetFanSpeedControl(FAN_AUTO);
                     break;
 			}
 			sendData(control_command, sizeof(control_command)); 
 		}
-		/*
+
         //Set swing mode
-        if (call.get_swing_mode().has_value())
+        if (call.get_swing_mode().has_value()){
             switch(call.get_swing_mode().value()) {
                 case CLIMATE_SWING_OFF:
-                    data[POWER] |= (1 << POWER_BIT_ON);
-                    data[SWING] = SWING_OFF;
-                    data[SWING_POS] &= ~(1 << SWING_UNDEFINED_BIT);
+					// When not auto we decide to set it to the center
+					SetHorizontalSwingControl(HORIZONTAL_SWING_CENTER);
+					// When not auto we decide to set it to the center
+					SetVerticalSwingControl(VERTICAL_SWING_CENTER);
                     break;
                 case CLIMATE_SWING_VERTICAL:
-                    data[POWER] |= (1 << POWER_BIT_ON);
-                    data[SWING] = SWING_OFF;
-                    data[SWING_POS] |= (1 << SWING_VERTICAL_BIT);
-                    data[SWING_POS] &= ~(1 << SWING_HORIZONTAL_BIT);
+					// When not auto we decide to set it to the center
+                    SetHorizontalSwingControl(HORIZONTAL_SWING_CENTER);
+					SetVerticalSwingControl(VERTICAL_SWING_AUTO);
                     break;
                 case CLIMATE_SWING_HORIZONTAL:
-                    data[POWER] |= (1 << POWER_BIT_ON);
-                    data[SWING] = SWING_OFF;
-                    data[SWING_POS] |= (1 << SWING_HORIZONTAL_BIT);
-                    data[SWING_POS] &= ~(1 << SWING_VERTICAL_BIT);
+                    SetHorizontalSwingControl(HORIZONTAL_SWING_AUTO);
+					// When not auto we decide to set it to the center
+					SetVerticalSwingControl(VERTICAL_SWING_CENTER);
                     break;
                 case CLIMATE_SWING_BOTH:
-                    data[POWER] |= (1 << POWER_BIT_ON);
-                    data[SWING] = SWING_BOTH;
-                    data[SWING_POS] &= ~(1 << SWING_UNDEFINED_BIT);
-                    data[SWING_POS] &= ~(1 << SWING_VERTICAL_BIT);
-                    data[SWING_POS] &= ~(1 << SWING_HORIZONTAL_BIT);
+                    SetHorizontalSwingControl(HORIZONTAL_SWING_AUTO);
+					SetVerticalSwingControl(VERTICAL_SWING_AUTO);
                     break;
+			}
+			sendData(control_command, sizeof(control_command)); 
         }
-		*/
+		
+		
 		if (call.get_target_temperature().has_value()) {
 		    float temp = *call.get_target_temperature();
 			ESP_LOGD("Control", "*call.get_target_temperature() = %f", temp);
