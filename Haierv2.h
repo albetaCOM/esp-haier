@@ -375,30 +375,16 @@ public:
 protected:
     ClimateTraits traits() override {
         auto traits = climate::ClimateTraits();
-		traits.set_supported_modes(CLIMATE_MODE_HEAT_COOL);
-		traits.set_supported_modes(CLIMATE_MODE_HEAT);
-		traits.set_supported_modes(CLIMATE_MODE_COOL );
-		traits.set_supported_modes(CLIMATE_MODE_DRY );
-		traits.set_supported_modes(CLIMATE_MODE_FAN_ONLY );
-		
-		traits.set_supported_fan_modes(CLIMATE_FAN_ON );
-		traits.set_supported_fan_modes(CLIMATE_FAN_OFF );
-		traits.set_supported_fan_modes(CLIMATE_FAN_AUTO  );
-		traits.set_supported_fan_modes(CLIMATE_FAN_LOW   );
-		traits.set_supported_fan_modes(CLIMATE_FAN_MEDIUM   );
-		traits.set_supported_fan_modes(CLIMATE_FAN_MIDDLE   );
-		traits.set_supported_fan_modes(CLIMATE_FAN_HIGH    );
+		traits.set_supported_modes({climate::CLIMATE_MODE_HEAT_COOL, climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_COOL, climate::CLIMATE_MODE_DRY, climate::CLIMATE_MODE_FAN_ONLY});
+
+		traits.set_supported_fan_modes({climate::CLIMATE_FAN_ON, climate::CLIMATE_FAN_OFF, climate::CLIMATE_FAN_AUTO, climate::CLIMATE_FAN_LOW, climate::CLIMATE_FAN_MEDIUM, climate::CLIMATE_FAN_MIDDLE, climate::CLIMATE_FAN_HIGH});
 
         traits.set_visual_min_temperature(MIN_SET_TEMPERATURE);
         traits.set_visual_max_temperature(MAX_SET_TEMPERATURE);
         traits.set_visual_temperature_step(1.0f);
         traits.set_supports_current_temperature(true);
 
-
-		traits.set_supported_swing_modes(CLIMATE_SWING_OFF );
-		traits.set_supported_swing_modes(CLIMATE_SWING_BOTH  );
-		traits.set_supported_swing_modes(CLIMATE_SWING_VERTICAL  );
-		traits.set_supported_swing_modes(CLIMATE_SWING_HORIZONTAL  );
+		traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_BOTH, climate::CLIMATE_SWING_VERTICAL, climate::CLIMATE_SWING_HORIZONTAL});
         return traits;
     }
 
@@ -633,10 +619,6 @@ public:
                     break;
 					
 				case CLIMATE_MODE_AUTO:
-				case CLIMATE_FAN_ON:
-				case CLIMATE_FAN_OFF:
-				case CLIMATE_FAN_FOCUS:
-				case CLIMATE_FAN_DIFFUSE:
 				default:
 					break;
 					
@@ -665,6 +647,13 @@ public:
                 case CLIMATE_FAN_AUTO:
                     SetFanSpeedControl(FAN_AUTO);
                     break;
+				case CLIMATE_FAN_ON:
+				case CLIMATE_FAN_OFF:
+				case CLIMATE_FAN_FOCUS:
+				case CLIMATE_FAN_DIFFUSE:
+				default:
+				    break;
+                    
 			}
 			sendData(control_command, sizeof(control_command)); 
 		}
