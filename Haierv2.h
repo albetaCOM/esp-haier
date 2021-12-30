@@ -89,10 +89,6 @@ using namespace esphome::climate;
 	#define CTRL_POWER_ON		0x01
 	#define CTRL_POWER_OFF		0x00
 	
-#define CTRL_PURIFY_OFFSET		21
-	// Purify: it seems on the control register doesn't match the status register
-	#define PURIFY_MSK_CTRL		0x0C
-
 	
 #define POLY 0xa001
 
@@ -116,7 +112,7 @@ private:
 	byte initialization_2[13] = {0xFF,0xFF,0x08,0x40,0x0,0x0,0x0,0x0,0x0,0x70,0xB8,0x86,0x41};
  	byte poll[15] = {0xFF,0xFF,0x0A,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x4D,0x01,0x99,0xB3,0xB4};
     byte power_command[17]     = {0xFF,0xFF,0x0C,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x5D,0x01,0x00,0x01,0xAC,0xBD,0xFB};
-	byte control_command[25] = {0xFF,0xFF,0x14,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x60,0x01,0x09,0x08,0x25,0x00,0x02,0x03,0x00,0x06,0x00,0x0C,0x03,0x0B,0x70};
+	byte control_command[25] = {0xFF,0xFF,0x14,0x40,0x00,0x00,0x00,0x00,0x00,0x01,0x60,0x01,0x09,0x08,0x25,0x00,0x02,0x00,0x00,0x06,0x00,0x00,0x03,0x0B,0x70};
 
 	byte climate_mode_fan_speed = FAN_AUTO;
 	byte climate_mode_setpoint = 0x0A;
@@ -215,20 +211,19 @@ private:
 		return ret;
 	}
 	
-	
 	void SetPurifyControl(bool purify_mode)
 	{
 		byte tmp;
 		byte msk;
 		
-		msk = PURIFY_MSK_CTRL;//(0x01 << PURIFY_BIT);		
+		msk = (0x01 << PURIFY_BIT);		
 		
 		if(purify_mode == true){
-			control_command[CTRL_PURIFY_OFFSET] |= PURIFY_MSK_CTRL;
+			control_command[STATUS_DATA_OFFSET] |= msk;
 		}
 		else{
 			msk = ~msk;
-			control_command[CTRL_PURIFY_OFFSET] &= PURIFY_MSK_CTRL;
+			control_command[STATUS_DATA_OFFSET] &= msk;
 		}
 	}
 	
@@ -248,6 +243,7 @@ private:
 	
 	void SetPowerControl(bool power_mode)
 	{
+
 		byte tmp;
 		byte msk;
 		
@@ -380,7 +376,7 @@ public:
 protected:
     ClimateTraits traits() override {
         auto traits = climate::ClimateTraits();
-		traits.set_supported_modes({climate::CLIMATE_MODE_HEAT_COOL, climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_COOL, climate::CLIMATE_MODE_DRY, climate::CLIMATE_MODE_FAN_ONLY});
+		traits.set_supported_modes({climate::CLIMATE_MODE_HEAT_COOL, climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_COOL, climate::CLIMATE_MODE_DRY, climate::CLIMATE_MODE_FAN_ONLY, climate::CLIMATE_MODE_OFF});
 
 		traits.set_supported_fan_modes({climate::CLIMATE_FAN_ON, climate::CLIMATE_FAN_OFF, climate::CLIMATE_FAN_AUTO, climate::CLIMATE_FAN_LOW, climate::CLIMATE_FAN_MEDIUM, climate::CLIMATE_FAN_MIDDLE, climate::CLIMATE_FAN_HIGH});
 
@@ -422,11 +418,14 @@ public:
 		// Read all the info from the status message and update values in control message
 		// so the next message is updated
 		// This is usefull if there are manual changes with the remote control
-		SetPowerControl(GetPowerStatus());
 		SetHvacModeControl(GetHvacModeStatus());
-		SetPurifyControl(GetPurifyStatus());
-		SetQuietModeControl(GetQuietModeStatus());
-		SetFastModeControl(GetFastModeStatus());
+		
+		// All flags on STATUS_DATA_OFFSET just toggle the corresponding status, like a push button
+		//SetPowerControl(GetPowerStatus());
+		//SetPurifyControl(GetPurifyStatus());
+		//SetQuietModeControl(GetQuietModeStatus());
+		//SetFastModeControl(GetFastModeStatus());
+		
 		SetFanSpeedControl(GetFanSpeedStatus());
 		SetHorizontalSwingControl(GetHorizontalSwingStatus());
 		SetVerticalSwingControl(GetVerticalSwingStatus());
@@ -446,11 +445,13 @@ public:
 
 		
 		// DEBUG DATA, uncomment what's needed
-		//ESP_LOGW("Debug", "Power Status = 0x%X", GetPowerStatus());
 		//ESP_LOGW("Debug", "HVAC Mode = 0x%X", GetHvacModeStatus());
-		//ESP_LOGW("Debug", "Purify status = 0x%X", GetPurifyStatus());
-		//ESP_LOGW("Debug", "Quiet mode Status = 0x%X", GetQuietModeStatus());
-		//ESP_LOGW("Debug", "Fast mode Status = 0x%X", GetFastModeStatus());
+
+		ESP_LOGW("Debug", "Power Status = 0x%X", GetPowerStatus());
+		ESP_LOGW("Debug", "Purify status = 0x%X", GetPurifyStatus());
+		ESP_LOGW("Debug", "Quiet mode Status = 0x%X", GetQuietModeStatus());
+		ESP_LOGW("Debug", "Fast mode Status = 0x%X", GetFastModeStatus());
+
 		//ESP_LOGW("Debug", "Fan speed Status = 0x%X", GetFanSpeedStatus());
 		//ESP_LOGW("Debug", "Horizontal Swing Status = 0x%X", GetHorizontalSwingStatus());
 		//ESP_LOGW("Debug", "Vertical Swing Status = 0x%X", GetVerticalSwingStatus());

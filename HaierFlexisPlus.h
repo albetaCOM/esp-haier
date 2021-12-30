@@ -219,22 +219,6 @@ private:
 	}
 	
 	
-	void SetPurifyControl(bool purify_mode)
-	{
-		byte tmp;
-		byte msk;
-		
-		msk = PURIFY_MSK_CTRL;//(0x01 << PURIFY_BIT);		
-		
-		if(purify_mode == true){
-			control_command[CTRL_PURIFY_OFFSET] |= PURIFY_MSK_CTRL;
-		}
-		else{
-			msk = ~msk;
-			control_command[CTRL_PURIFY_OFFSET] &= PURIFY_MSK_CTRL;
-		}
-	}
-	
 	bool GetPurifyStatus( void )
 	{
 		bool ret = false;		
@@ -427,7 +411,6 @@ public:
 		// This is usefull if there are manual changes with the remote control
 		SetPowerControl(GetPowerStatus());
 		SetHvacModeControl(GetHvacModeStatus());
-		SetPurifyControl(GetPurifyStatus());
 		SetQuietModeControl(GetQuietModeStatus());
 		SetFastModeControl(GetFastModeStatus());
 		SetFanSpeedControl(GetFanSpeedStatus());
