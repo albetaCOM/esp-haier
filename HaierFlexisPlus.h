@@ -56,6 +56,9 @@ using namespace esphome::climate;
 		#define QUIET_BIT				(3)	
 		#define AUTO_FAN_MAX_BIT		(4)
 		
+	
+
+		
 #define SET_POINT_OFFSET 		35	
 	
 	// Another byte
@@ -86,9 +89,13 @@ using namespace esphome::climate;
 	#define CRC_OFFSET(message)		(2 + message[2])
 	
 	// Control commands
-	#define CTR_POWER_OFFSET		13
-		#define CTR_POWER_ON		0x01
-		#define CTR_POWER_OFF		0x00
+	#define CTRL_POWER_OFFSET		13
+		#define CTRL_POWER_ON		0x01
+		#define CTRL_POWER_OFF		0x00
+		
+	#define CTRL_PURIFY_OFFSET		21
+		// Purify: it seems on the control register doesn't match the status register
+		#define PURIFY_MSK_CTRL		0x0C
 		
 	#define POLY 0xa001
 	
@@ -217,14 +224,14 @@ private:
 		byte tmp;
 		byte msk;
 		
-		msk = (0x01 << PURIFY_BIT);		
+		msk = PURIFY_MSK_CTRL;//(0x01 << PURIFY_BIT);		
 		
 		if(purify_mode == true){
-			control_command[STATUS_DATA_OFFSET] |= msk;
+			control_command[CTRL_PURIFY_OFFSET] |= PURIFY_MSK_CTRL;
 		}
 		else{
 			msk = ~msk;
-			control_command[STATUS_DATA_OFFSET] &= msk;
+			control_command[CTRL_PURIFY_OFFSET] &= PURIFY_MSK_CTRL;
 		}
 	}
 	
