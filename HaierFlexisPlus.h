@@ -76,8 +76,8 @@ using namespace esphome::climate;
 	
 	
 	#define LIGHT       			16
-		#define LIGHT_ON    		2
-		#define LIGHT_OFF   		0	
+		#define LIGHT_ON    		0
+		#define LIGHT_OFF   		2	
 	
 	#define FRESH       			31
 		#define FRESH_ON    		1
