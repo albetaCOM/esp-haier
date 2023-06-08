@@ -75,6 +75,9 @@ using namespace esphome::climate;
 	// Updated read offset
 	
 	
+	#define LIGHT       			16
+		#define LIGHT_ON    		2
+		#define LIGHT_OFF   		0	
 	
 	#define FRESH       			31
 		#define FRESH_ON    		1
